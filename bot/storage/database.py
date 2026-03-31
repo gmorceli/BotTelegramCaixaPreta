@@ -1,5 +1,5 @@
 import asyncpg
-from datetime import datetime
+from datetime import datetime, timezone
 from bot.storage.models import SCHEMA_SQL
 
 
@@ -159,13 +159,13 @@ class Database:
             )
             return [dict(r) for r in rows]
 
-    async def complete_task(self, task_id: int) -> bool:
+    async def complete_task(self, task_id: int, chat_id: int) -> bool:
         async with self._pool.acquire() as conn:
             result = await conn.execute(
                 """UPDATE tasks
                    SET status = 'concluida', completed_at = $1
-                   WHERE id = $2 AND status != 'concluida'""",
-                datetime.now(), task_id,
+                   WHERE id = $2 AND chat_id = $3 AND status != 'concluida'""",
+                datetime.now(timezone.utc), task_id, chat_id,
             )
             return result == "UPDATE 1"
 

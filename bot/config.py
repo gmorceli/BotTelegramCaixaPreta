@@ -17,9 +17,17 @@ class Config:
 
     # Bot Config
     ADMIN_USER_IDS_RAW = os.getenv("ADMIN_USER_IDS", "")
-    DAILY_SUMMARY_HOUR = int(os.getenv("DAILY_SUMMARY_HOUR", "18"))
+    try:
+        DAILY_SUMMARY_HOUR = int(os.getenv("DAILY_SUMMARY_HOUR", "18"))
+    except ValueError:
+        DAILY_SUMMARY_HOUR = 18
 
     @staticmethod
     def get_admin_ids() -> list[int]:
         raw = os.getenv("ADMIN_USER_IDS", "")
-        return [int(uid.strip()) for uid in raw.split(",") if uid.strip()]
+        ids = []
+        for uid in raw.split(","):
+            uid = uid.strip()
+            if uid and uid.isdigit():
+                ids.append(int(uid))
+        return ids

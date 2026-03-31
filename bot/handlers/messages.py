@@ -23,6 +23,10 @@ def create_message_handler(db: Database):
         if update.message.text.startswith("/"):
             return
 
+        # Ignora mensagens sem usuário (ex: posts de canais)
+        if not update.effective_user:
+            return
+
         chat_id = update.effective_chat.id
 
         # Verifica se o grupo está configurado
@@ -34,12 +38,15 @@ def create_message_handler(db: Database):
         if update.message.reply_to_message:
             reply_to = update.message.reply_to_message.message_id
 
+        # Limita texto a 4000 chars para evitar abuso de storage
+        text = update.message.text[:4000] if update.message.text else ""
+
         await db.save_message(
             chat_id=chat_id,
             user_id=update.effective_user.id,
             username=update.effective_user.username,
             display_name=update.effective_user.full_name,
-            message_text=update.message.text,
+            message_text=text,
             telegram_message_id=update.message.message_id,
             reply_to=reply_to,
         )

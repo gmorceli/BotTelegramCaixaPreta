@@ -48,12 +48,11 @@ def create_command_handlers(db: Database, claude: ClaudeService):
 
     async def cmd_myid(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id = update.effective_user.id
-        admin_ids = Config.get_admin_ids()
-        is_adm = user_id in admin_ids
+        is_adm = is_admin(user_id)
         await update.message.reply_text(
-            f"Seu user ID: {user_id}\n"
-            f"Admin IDs configurados: {admin_ids}\n"
-            f"Você é admin: {is_adm}"
+            f"Seu user ID: `{user_id}`\n"
+            f"Você é admin: {is_adm}",
+            parse_mode="Markdown",
         )
 
     async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -114,8 +113,8 @@ def create_command_handlers(db: Database, claude: ClaudeService):
                 reply_markup=_quick_buttons(),
             )
         except Exception as e:
-            logger.error(f"Erro no /setup: {e}")
-            await update.message.reply_text(f"Erro ao configurar: {e}")
+            logger.error(f"Erro no /setup: {e}", exc_info=True)
+            await update.message.reply_text("Erro ao configurar o grupo. Tente novamente.")
 
     async def cmd_resumo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_id = update.effective_chat.id
@@ -142,8 +141,8 @@ def create_command_handlers(db: Database, claude: ClaudeService):
             await update.message.reply_text(truncate(summary, 4000), parse_mode="Markdown")
 
         except Exception as e:
-            logger.error(f"Erro no /resumo: {e}")
-            await update.message.reply_text(f"Erro ao gerar resumo: {e}")
+            logger.error(f"Erro no /resumo: {e}", exc_info=True)
+            await update.message.reply_text("Erro ao gerar resumo. Tente novamente.")
 
     async def cmd_decisao(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_id = update.effective_chat.id
@@ -157,10 +156,12 @@ def create_command_handlers(db: Database, claude: ClaudeService):
             await update.message.reply_text("Use: /decisao [texto da decisão]")
             return
 
+        args_text = args_text[:1000]
+
         recent = await db.get_recent_messages(chat_id, limit=10)
         context_text = format_messages_for_prompt(recent) if recent else None
 
-        username = update.effective_user.username or update.effective_user.full_name
+        username = update.effective_user.username or update.effective_user.full_name or "Anônimo"
 
         decision_id = await db.save_decision(
             chat_id=chat_id,
@@ -229,8 +230,10 @@ def create_command_handlers(db: Database, claude: ClaudeService):
             await update.message.reply_text("Informe o texto da pendência.")
             return
 
+        task_text = task_text[:1000]
+
         if not assigned_to:
-            assigned_to = update.effective_user.username or update.effective_user.full_name
+            assigned_to = update.effective_user.username or update.effective_user.full_name or "Anônimo"
 
         task_id = await db.save_task(
             chat_id=chat_id,
@@ -296,7 +299,7 @@ def create_command_handlers(db: Database, claude: ClaudeService):
             await update.message.reply_text("Pendência não encontrada.")
             return
 
-        completed = await db.complete_task(task["id"])
+        completed = await db.complete_task(task["id"], chat_id)
         if not completed:
             await update.message.reply_text("Esta pendência já foi concluída.")
             return
@@ -334,8 +337,8 @@ def create_command_handlers(db: Database, claude: ClaudeService):
             await update.message.reply_text(truncate(answer, 4000), parse_mode="Markdown")
 
         except Exception as e:
-            logger.error(f"Erro no /contexto: {e}")
-            await update.message.reply_text(f"Erro ao buscar contexto: {e}")
+            logger.error(f"Erro no /contexto: {e}", exc_info=True)
+            await update.message.reply_text("Erro ao buscar contexto. Tente novamente.")
 
     async def cmd_buscar(update: Update, context: ContextTypes.DEFAULT_TYPE):
         args_text = " ".join(context.args) if context.args else ""
@@ -349,8 +352,8 @@ def create_command_handlers(db: Database, claude: ClaudeService):
             result = await claude.web_search(args_text)
             await update.message.reply_text(truncate(result, 4000), parse_mode="Markdown")
         except Exception as e:
-            logger.error(f"Erro no /buscar: {e}")
-            await update.message.reply_text(f"Erro na pesquisa: {e}")
+            logger.error(f"Erro no /buscar: {e}", exc_info=True)
+            await update.message.reply_text("Erro na pesquisa. Tente novamente.")
 
     async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_id = update.effective_chat.id
