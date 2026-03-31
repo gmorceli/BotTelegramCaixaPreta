@@ -1,7 +1,7 @@
 import anthropic
 from bot.config import Config
 
-SYSTEM_PROMPT_TEMPLATE = """Você é James, assistente de memória do projeto "{project_name}".
+SYSTEM_PROMPT_TEMPLATE = """Você é Caixa Preta, assistente de memória do projeto "{project_name}".
 
 Seu papel:
 - Manter o time organizado com resumos claros e objetivos

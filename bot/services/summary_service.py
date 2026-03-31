@@ -61,7 +61,7 @@ class SummaryService:
                 tipo="resumo",
                 titulo=f"Resumo diário — {today}",
                 conteudo=summary,
-                autor="James Bot",
+                autor="Caixa Preta",
                 grupo_telegram=group.get("group_name", ""),
             )
         except Exception as e:

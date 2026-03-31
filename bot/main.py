@@ -78,7 +78,7 @@ def main():
         app.job_queue.run_daily(daily_summary_callback, time=summary_time, name="daily_summary")
         logger.info(f"Resumo diário agendado para {Config.DAILY_SUMMARY_HOUR}:00 UTC")
 
-    logger.info("James Bot iniciando...")
+    logger.info("Caixa Preta Bot iniciando...")
     app.run_polling(drop_pending_updates=True)
 
 

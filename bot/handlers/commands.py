@@ -26,7 +26,7 @@ def create_command_handlers(db: Database, claude: ClaudeService, notion: NotionS
 
     async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
-            "Olá! Sou o James, bot de memória de projetos.\n"
+            "Olá! Sou o Caixa Preta, bot de memória de projetos.\n"
             "Use /setup para configurar este grupo.\n"
             "Use /help para ver todos os comandos."
         )
@@ -128,7 +128,7 @@ def create_command_handlers(db: Database, claude: ClaudeService, notion: NotionS
                     tipo="resumo",
                     titulo=f"Resumo — {group['project_name']}",
                     conteudo=summary,
-                    autor="James Bot",
+                    autor="Caixa Preta",
                     grupo_telegram=group["group_name"],
                 )
             except Exception as e:
