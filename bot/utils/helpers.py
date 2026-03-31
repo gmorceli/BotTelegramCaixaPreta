@@ -1,13 +1,29 @@
 from datetime import datetime
 
 
+def _format_timestamp(ts) -> str:
+    """Converte timestamp (datetime ou string) para string legível."""
+    if ts is None:
+        return ""
+    if isinstance(ts, datetime):
+        return ts.strftime("%Y-%m-%d %H:%M")
+    return str(ts)[:16]
+
+
+def _format_date(ts) -> str:
+    """Converte timestamp para data curta."""
+    if ts is None:
+        return ""
+    if isinstance(ts, datetime):
+        return ts.strftime("%Y-%m-%d")
+    return str(ts)[:10]
+
+
 def format_messages_for_prompt(messages: list[dict]) -> str:
     """Formata lista de mensagens para enviar ao Claude."""
     lines = []
     for msg in messages:
-        timestamp = msg.get("created_at", "")
-        if isinstance(timestamp, str) and len(timestamp) > 16:
-            timestamp = timestamp[:16]
+        timestamp = _format_timestamp(msg.get("created_at"))
         name = msg.get("display_name") or msg.get("username") or "Desconhecido"
         text = msg.get("message_text", "")
         lines.append(f"[{timestamp}] {name}: {text}")
@@ -20,7 +36,7 @@ def format_decisions_for_prompt(decisions: list[dict]) -> str:
         return "Nenhuma decisão registrada."
     lines = []
     for d in decisions:
-        date = d.get("created_at", "")[:10] if d.get("created_at") else ""
+        date = _format_date(d.get("created_at"))
         lines.append(f"- [{date}] {d['decision_text']}")
     return "\n".join(lines)
 
