@@ -18,7 +18,7 @@ class NotionService:
             title=[{"type": "text", "text": {"content": project_name}}],
             description=[{"type": "text", "text": {"content": f"chat_id={chat_id}|group_name={group_name}"}}],
             properties={
-                "Título": {"title": {}},
+                "Name": {"title": {}},
                 "Tipo": {
                     "select": {
                         "options": [
@@ -60,7 +60,7 @@ class NotionService:
     ) -> str:
         """Cria page na database. Retorna page_id."""
         properties = {
-            "Título": {"title": [{"text": {"content": titulo[:100]}}]},
+            "Name": {"title": [{"text": {"content": titulo[:100]}}]},
             "Tipo": {"select": {"name": tipo}},
             "Autor": {"rich_text": [{"text": {"content": autor[:100]}}]},
             "Data": {"date": {"start": date.today().isoformat()}},
