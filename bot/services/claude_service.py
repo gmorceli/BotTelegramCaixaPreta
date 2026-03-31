@@ -97,3 +97,24 @@ class ClaudeService:
             user_question=user_question,
         )
         return await self._call(system, user_msg)
+
+    async def web_search(self, query: str) -> str:
+        """Busca na web usando Anthropic com server-side tool."""
+        response = await asyncio.to_thread(
+            self.client.messages.create,
+            model="claude-sonnet-4-20250514",
+            max_tokens=4096,
+            system=(
+                "Você é um assistente de pesquisa. Responda em português brasileiro, "
+                "de forma objetiva com bullet points. Cite as fontes quando possível."
+            ),
+            tools=[{"type": "web_search_20250305"}],
+            messages=[{"role": "user", "content": query}],
+        )
+
+        # Extrai texto da resposta (pode ter múltiplos content blocks)
+        texts = []
+        for block in response.content:
+            if block.type == "text":
+                texts.append(block.text)
+        return "\n".join(texts) if texts else "Não encontrei resultados relevantes."
