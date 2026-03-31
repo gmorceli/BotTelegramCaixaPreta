@@ -24,7 +24,8 @@ class Config:
     # Database
     DB_PATH = os.getenv("DB_PATH", "data/james.db")
 
-    @classmethod
-    def get_admin_ids(cls) -> list[int]:
+    @staticmethod
+    def get_admin_ids() -> list[int]:
         raw = os.getenv("ADMIN_USER_IDS", "")
-        return [int(uid.strip()) for uid in raw.split(",") if uid.strip()]
+        ids = [int(uid.strip()) for uid in raw.split(",") if uid.strip()]
+        return ids

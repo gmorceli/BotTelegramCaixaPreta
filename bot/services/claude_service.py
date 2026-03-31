@@ -1,3 +1,4 @@
+import asyncio
 import anthropic
 from bot.config import Config
 
@@ -59,8 +60,9 @@ class ClaudeService:
         self.client = anthropic.Anthropic(api_key=Config.ANTHROPIC_API_KEY)
         self.model = Config.CLAUDE_MODEL
 
-    def _call(self, system: str, user_message: str) -> str:
-        response = self.client.messages.create(
+    async def _call(self, system: str, user_message: str) -> str:
+        response = await asyncio.to_thread(
+            self.client.messages.create,
             model=self.model,
             max_tokens=2048,
             system=system,
@@ -68,16 +70,16 @@ class ClaudeService:
         )
         return response.content[0].text
 
-    def generate_summary(
+    async def generate_summary(
         self, project_name: str, formatted_messages: str, system_prompt: str | None = None
     ) -> str:
         system = system_prompt or SYSTEM_PROMPT_TEMPLATE.format(project_name=project_name)
         user_msg = SUMMARY_PROMPT_TEMPLATE.format(
             project_name=project_name, formatted_messages=formatted_messages
         )
-        return self._call(system, user_msg)
+        return await self._call(system, user_msg)
 
-    def answer_context(
+    async def answer_context(
         self,
         project_name: str,
         formatted_messages: str,
@@ -94,4 +96,4 @@ class ClaudeService:
             formatted_tasks=formatted_tasks,
             user_question=user_question,
         )
-        return self._call(system, user_msg)
+        return await self._call(system, user_msg)

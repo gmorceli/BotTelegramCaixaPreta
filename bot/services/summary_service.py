@@ -39,7 +39,7 @@ class SummaryService:
             return
 
         formatted = format_messages_for_prompt(messages)
-        summary = self.claude.generate_summary(
+        summary = await self.claude.generate_summary(
             project_name=group["project_name"],
             formatted_messages=formatted,
             system_prompt=group.get("system_prompt"),

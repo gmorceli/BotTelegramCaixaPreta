@@ -18,9 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 def is_admin(user_id: int) -> bool:
-    admin_ids = Config.get_admin_ids()
-    logger.info(f"Checking admin: user_id={user_id}, admin_ids={admin_ids}")
-    return user_id in admin_ids
+    return user_id in Config.get_admin_ids()
 
 
 def create_command_handlers(db: Database, claude: ClaudeService, notion: NotionService):
@@ -125,7 +123,7 @@ def create_command_handlers(db: Database, claude: ClaudeService, notion: NotionS
 
         try:
             formatted = format_messages_for_prompt(messages)
-            summary = claude.generate_summary(
+            summary = await claude.generate_summary(
                 project_name=group["project_name"],
                 formatted_messages=formatted,
                 system_prompt=group.get("system_prompt"),
@@ -314,7 +312,7 @@ def create_command_handlers(db: Database, claude: ClaudeService, notion: NotionS
             decisions = await db.get_decisions(chat_id)
             tasks = await db.get_pending_tasks(chat_id)
 
-            answer = claude.answer_context(
+            answer = await claude.answer_context(
                 project_name=group["project_name"],
                 formatted_messages=format_messages_for_prompt(messages),
                 formatted_decisions=format_decisions_for_prompt(decisions),
