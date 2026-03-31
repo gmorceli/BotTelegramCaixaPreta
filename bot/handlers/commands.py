@@ -18,7 +18,9 @@ logger = logging.getLogger(__name__)
 
 
 def is_admin(user_id: int) -> bool:
-    return user_id in Config.ADMIN_USER_IDS
+    admin_ids = Config.get_admin_ids()
+    logger.info(f"Checking admin: user_id={user_id}, admin_ids={admin_ids}")
+    return user_id in admin_ids
 
 
 def create_command_handlers(db: Database, claude: ClaudeService, notion: NotionService):
@@ -29,6 +31,16 @@ def create_command_handlers(db: Database, claude: ClaudeService, notion: NotionS
             "Olá! Sou o Caixa Preta, bot de memória de projetos.\n"
             "Use /setup para configurar este grupo.\n"
             "Use /help para ver todos os comandos."
+        )
+
+    async def cmd_myid(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        user_id = update.effective_user.id
+        admin_ids = Config.get_admin_ids()
+        is_adm = user_id in admin_ids
+        await update.message.reply_text(
+            f"Seu user ID: {user_id}\n"
+            f"Admin IDs configurados: {admin_ids}\n"
+            f"Você é admin: {is_adm}"
         )
 
     async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -342,6 +354,7 @@ def create_command_handlers(db: Database, claude: ClaudeService, notion: NotionS
 
     return {
         "start": cmd_start,
+        "myid": cmd_myid,
         "help": cmd_help,
         "setup": cmd_setup,
         "resumo": cmd_resumo,

@@ -17,13 +17,14 @@ class Config:
     NOTION_PARENT_PAGE_ID = os.getenv("NOTION_PARENT_PAGE_ID", "")
 
     # Bot Config
-    ADMIN_USER_IDS = [
-        int(uid.strip())
-        for uid in os.getenv("ADMIN_USER_IDS", "").split(",")
-        if uid.strip()
-    ]
+    ADMIN_USER_IDS_RAW = os.getenv("ADMIN_USER_IDS", "")
     DAILY_SUMMARY_HOUR = int(os.getenv("DAILY_SUMMARY_HOUR", "18"))
     MESSAGE_BUFFER_LIMIT = int(os.getenv("MESSAGE_BUFFER_LIMIT", "500"))
 
     # Database
     DB_PATH = os.getenv("DB_PATH", "data/james.db")
+
+    @classmethod
+    def get_admin_ids(cls) -> list[int]:
+        raw = os.getenv("ADMIN_USER_IDS", "")
+        return [int(uid.strip()) for uid in raw.split(",") if uid.strip()]
