@@ -84,7 +84,11 @@ def create_command_handlers(db: Database, claude: ClaudeService, notion: NotionS
 
         try:
             # Cria database no Notion
-            notion_db_id = notion.create_project_database(project_name)
+            notion_db_id = notion.create_project_database(
+                project_name=project_name,
+                chat_id=chat_id,
+                group_name=update.effective_chat.title or project_name,
+            )
 
             # System prompt padrão
             system_prompt = SYSTEM_PROMPT_TEMPLATE.format(project_name=project_name)

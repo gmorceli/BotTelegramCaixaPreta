@@ -25,11 +25,41 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+async def restore_groups_from_notion(db: Database, notion: NotionService):
+    """Restaura config dos grupos a partir do Notion."""
+    from bot.services.claude_service import SYSTEM_PROMPT_TEMPLATE
+
+    projects = notion.get_all_project_databases()
+    restored = 0
+    for proj in projects:
+        existing = await db.get_group(proj["chat_id"])
+        if not existing:
+            system_prompt = SYSTEM_PROMPT_TEMPLATE.format(project_name=proj["project_name"])
+            await db.save_group(
+                chat_id=proj["chat_id"],
+                group_name=proj["group_name"],
+                project_name=proj["project_name"],
+                notion_database_id=proj["database_id"],
+                system_prompt=system_prompt,
+            )
+            restored += 1
+            logger.info(f"Grupo restaurado: {proj['project_name']} (chat_id={proj['chat_id']})")
+
+    if restored:
+        logger.info(f"Total de {restored} grupo(s) restaurado(s) do Notion")
+    else:
+        logger.info("Nenhum grupo novo para restaurar")
+
+
 async def post_init(application):
-    """Inicializa banco de dados ao iniciar o bot."""
+    """Inicializa banco de dados e restaura configs do Notion."""
     db: Database = application.bot_data["db"]
+    notion: NotionService = application.bot_data["notion"]
     await db.initialize()
     logger.info("Database inicializado")
+
+    await restore_groups_from_notion(db, notion)
+    logger.info("Restauração de grupos concluída")
 
 
 async def post_shutdown(application):
