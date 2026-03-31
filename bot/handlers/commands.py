@@ -1,5 +1,5 @@
 import logging
-from telegram import Update
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
 from bot.config import Config
@@ -11,6 +11,7 @@ from bot.utils.helpers import (
     format_tasks_for_prompt,
     truncate,
     parse_assigned_user,
+    _format_date,
 )
 
 logger = logging.getLogger(__name__)
@@ -20,6 +21,20 @@ def is_admin(user_id: int) -> bool:
     return user_id in Config.get_admin_ids()
 
 
+def _quick_buttons() -> InlineKeyboardMarkup:
+    """Botões de atalho para comandos frequentes."""
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("Resumo", callback_data="cmd_resumo"),
+            InlineKeyboardButton("Pendências", callback_data="cmd_pendencias"),
+        ],
+        [
+            InlineKeyboardButton("Status", callback_data="cmd_status"),
+            InlineKeyboardButton("Help", callback_data="cmd_help"),
+        ],
+    ])
+
+
 def create_command_handlers(db: Database, claude: ClaudeService):
     """Retorna dict com todos os handlers de comando."""
 
@@ -27,7 +42,8 @@ def create_command_handlers(db: Database, claude: ClaudeService):
         await update.message.reply_text(
             "Olá! Sou o Caixa Preta, bot de memória de projetos.\n"
             "Use /setup para configurar este grupo.\n"
-            "Use /help para ver todos os comandos."
+            "Use /help para ver todos os comandos.",
+            reply_markup=_quick_buttons(),
         )
 
     async def cmd_myid(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -46,15 +62,18 @@ def create_command_handlers(db: Database, claude: ClaudeService):
             "/setup — Configurar grupo (admin)\n"
             "/resumo — Gerar resumo das discussões\n"
             "/decisao [texto] — Registrar uma decisão\n"
-            "/pendencia [@user] [texto] — Criar pendência\n"
+            "/decisoes — Listar decisões registradas\n"
+            "/excluirdecisao [nº] — Excluir decisão (admin)\n"
+            "/pendencia [usuario] [texto] — Criar pendência\n"
             "/pendencias — Listar pendências abertas\n"
             "/feito [nº ou texto] — Marcar pendência como concluída\n"
+            "/excluirpendencia [nº] — Excluir pendência (admin)\n"
             "/contexto [pergunta] — Perguntar sobre o projeto\n"
             "/buscar [pesquisa] — Pesquisar na web\n"
             "/status — Status do projeto (admin)\n"
             "/help — Esta mensagem"
         )
-        await update.message.reply_text(text, parse_mode="Markdown")
+        await update.message.reply_text(text, parse_mode="Markdown", reply_markup=_quick_buttons())
 
     async def cmd_setup(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if update.effective_chat.type not in ("group", "supergroup"):
@@ -92,6 +111,7 @@ def create_command_handlers(db: Database, claude: ClaudeService):
                 f"Projeto *{project_name}* configurado!\n"
                 "Use /help para ver os comandos.",
                 parse_mode="Markdown",
+                reply_markup=_quick_buttons(),
             )
         except Exception as e:
             logger.error(f"Erro no /setup: {e}")
@@ -142,7 +162,7 @@ def create_command_handlers(db: Database, claude: ClaudeService):
 
         username = update.effective_user.username or update.effective_user.full_name
 
-        await db.save_decision(
+        decision_id = await db.save_decision(
             chat_id=chat_id,
             user_id=update.effective_user.id,
             decision_text=args_text,
@@ -150,8 +170,47 @@ def create_command_handlers(db: Database, claude: ClaudeService):
         )
 
         await update.message.reply_text(
-            f"Decisão registrada por @{username}: {args_text}"
+            f"Decisão #{decision_id} registrada por @{username}: {args_text}"
         )
+
+    async def cmd_decisoes(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        chat_id = update.effective_chat.id
+        group = await db.get_group(chat_id)
+        if not group:
+            await update.message.reply_text("Grupo não configurado. Use /setup primeiro.")
+            return
+
+        decisions = await db.get_decisions(chat_id, limit=20)
+        if not decisions:
+            await update.message.reply_text("Nenhuma decisão registrada.")
+            return
+
+        lines = [f"*Decisões do projeto {group['project_name']}:*\n"]
+        for d in decisions:
+            date = _format_date(d.get("created_at"))
+            lines.append(f"#{d['id']} [{date}] {d['decision_text'][:80]}")
+
+        await update.message.reply_text(
+            truncate("\n".join(lines), 4000), parse_mode="Markdown"
+        )
+
+    async def cmd_excluirdecisao(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        if not is_admin(update.effective_user.id):
+            await update.message.reply_text("Apenas administradores podem excluir decisões.")
+            return
+
+        chat_id = update.effective_chat.id
+        args_text = " ".join(context.args) if context.args else ""
+        if not args_text.strip() or not args_text.strip().isdigit():
+            await update.message.reply_text("Use: /excluirdecisao [número da decisão]")
+            return
+
+        decision_id = int(args_text.strip())
+        deleted = await db.delete_decision(decision_id, chat_id)
+        if deleted:
+            await update.message.reply_text(f"Decisão #{decision_id} excluída.")
+        else:
+            await update.message.reply_text(f"Decisão #{decision_id} não encontrada.")
 
     async def cmd_pendencia(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_id = update.effective_chat.id
@@ -162,7 +221,7 @@ def create_command_handlers(db: Database, claude: ClaudeService):
 
         args_text = " ".join(context.args) if context.args else ""
         if not args_text.strip():
-            await update.message.reply_text("Use: /pendencia [@usuario] [texto da tarefa]")
+            await update.message.reply_text("Use: /pendencia [usuario] [texto da tarefa]")
             return
 
         assigned_to, task_text = parse_assigned_user(args_text)
@@ -201,6 +260,24 @@ def create_command_handlers(db: Database, claude: ClaudeService):
             lines.append(f"• #{t['id']} {t['task_text']}{assigned} ({t['status']})")
 
         await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
+
+    async def cmd_excluirpendencia(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        if not is_admin(update.effective_user.id):
+            await update.message.reply_text("Apenas administradores podem excluir pendências.")
+            return
+
+        chat_id = update.effective_chat.id
+        args_text = " ".join(context.args) if context.args else ""
+        if not args_text.strip() or not args_text.strip().isdigit():
+            await update.message.reply_text("Use: /excluirpendencia [número da pendência]")
+            return
+
+        task_id = int(args_text.strip())
+        deleted = await db.delete_task(task_id, chat_id)
+        if deleted:
+            await update.message.reply_text(f"Pendência #{task_id} excluída.")
+        else:
+            await update.message.reply_text(f"Pendência #{task_id} não encontrada.")
 
     async def cmd_feito(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_id = update.effective_chat.id
@@ -294,19 +371,17 @@ def create_command_handlers(db: Database, claude: ClaudeService):
         lines = [
             f"*Status do projeto {group['project_name']}*\n",
             f"Mensagens registradas: {stats['total_messages']}",
-            f"Configurado em: {str(group['created_at'])[:16]}\n",
+            f"Configurado em: {_format_date(group.get('created_at'))}\n",
         ]
 
-        # Últimas decisões
         lines.append(f"*Decisões ({stats['total_decisions']} total):*")
         if decisions:
             for d in decisions[-5:]:
-                date = str(d['created_at'])[:10]
-                lines.append(f"• [{date}] {d['decision_text'][:80]}")
+                date = _format_date(d.get("created_at"))
+                lines.append(f"• #{d['id']} [{date}] {d['decision_text'][:80]}")
         else:
             lines.append("• Nenhuma decisão registrada")
 
-        # Pendências abertas
         lines.append(f"\n*Pendências abertas ({stats['pending_tasks']}):*")
         if tasks:
             for t in tasks:
@@ -316,7 +391,8 @@ def create_command_handlers(db: Database, claude: ClaudeService):
             lines.append("• Nenhuma pendência aberta")
 
         await update.message.reply_text(
-            truncate("\n".join(lines), 4000), parse_mode="Markdown"
+            truncate("\n".join(lines), 4000), parse_mode="Markdown",
+            reply_markup=_quick_buttons(),
         )
 
     return {
@@ -326,8 +402,11 @@ def create_command_handlers(db: Database, claude: ClaudeService):
         "setup": cmd_setup,
         "resumo": cmd_resumo,
         "decisao": cmd_decisao,
+        "decisoes": cmd_decisoes,
+        "excluirdecisao": cmd_excluirdecisao,
         "pendencia": cmd_pendencia,
         "pendencias": cmd_pendencias,
+        "excluirpendencia": cmd_excluirpendencia,
         "feito": cmd_feito,
         "contexto": cmd_contexto,
         "buscar": cmd_buscar,

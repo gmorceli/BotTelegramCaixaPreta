@@ -125,6 +125,14 @@ class Database:
             )
             return [dict(r) for r in reversed(rows)]
 
+    async def delete_decision(self, decision_id: int, chat_id: int) -> bool:
+        async with self._pool.acquire() as conn:
+            result = await conn.execute(
+                "DELETE FROM decisions WHERE id = $1 AND chat_id = $2",
+                decision_id, chat_id,
+            )
+            return result == "DELETE 1"
+
     # ── Tasks ──
 
     async def save_task(
@@ -160,6 +168,14 @@ class Database:
                 datetime.now(), task_id,
             )
             return result == "UPDATE 1"
+
+    async def delete_task(self, task_id: int, chat_id: int) -> bool:
+        async with self._pool.acquire() as conn:
+            result = await conn.execute(
+                "DELETE FROM tasks WHERE id = $1 AND chat_id = $2",
+                task_id, chat_id,
+            )
+            return result == "DELETE 1"
 
     async def find_task(self, chat_id: int, search: str) -> dict | None:
         async with self._pool.acquire() as conn:
