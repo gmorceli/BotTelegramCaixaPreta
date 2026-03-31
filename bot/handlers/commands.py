@@ -172,6 +172,7 @@ def create_command_handlers(db: Database, claude: ClaudeService, notion: NotionS
 
         # Salva no Notion
         notion_page_id = None
+        notion_error = None
         try:
             notion_page_id = notion.create_page(
                 database_id=group["notion_database_id"],
@@ -183,6 +184,7 @@ def create_command_handlers(db: Database, claude: ClaudeService, notion: NotionS
                 grupo_telegram=group["group_name"],
             )
         except Exception as e:
+            notion_error = str(e)
             logger.error(f"Erro ao salvar decisão no Notion: {e}")
 
         # Salva no SQLite
@@ -194,9 +196,10 @@ def create_command_handlers(db: Database, claude: ClaudeService, notion: NotionS
             notion_page_id=notion_page_id,
         )
 
-        await update.message.reply_text(
-            f"Decisão registrada por @{username}: {args_text}"
-        )
+        msg = f"Decisão registrada por @{username}: {args_text}"
+        if notion_error:
+            msg += f"\n\n⚠️ Erro Notion: {notion_error}"
+        await update.message.reply_text(msg)
 
     async def cmd_pendencia(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_id = update.effective_chat.id
