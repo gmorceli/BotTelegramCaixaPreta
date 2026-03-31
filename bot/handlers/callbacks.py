@@ -69,8 +69,8 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             await msg.reply_text(truncate(summary, 4000), parse_mode="Markdown")
         except Exception as e:
-            logger.error(f"Erro no callback resumo: {e}")
-            await msg.reply_text(f"Erro ao gerar resumo: {e}")
+            logger.error(f"Erro no callback resumo: {e}", exc_info=True)
+            await msg.reply_text("Erro ao gerar resumo. Tente novamente.")
 
     elif query.data == "cmd_pendencias":
         tasks = await db.get_pending_tasks(chat_id)

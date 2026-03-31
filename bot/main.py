@@ -64,6 +64,8 @@ def main():
         raise ValueError("TELEGRAM_BOT_TOKEN não configurado")
     if not Config.DATABASE_URL:
         raise ValueError("DATABASE_URL não configurado")
+    if not Config.ANTHROPIC_API_KEY:
+        raise ValueError("ANTHROPIC_API_KEY não configurado")
 
     # Inicializa serviços
     db = Database(Config.DATABASE_URL)
