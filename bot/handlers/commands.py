@@ -5,7 +5,6 @@ from telegram.ext import ContextTypes
 from bot.config import Config
 from bot.storage.database import Database
 from bot.services.claude_service import ClaudeService, SYSTEM_PROMPT_TEMPLATE
-from bot.services.notion_service import NotionService
 from bot.utils.helpers import (
     format_messages_for_prompt,
     format_decisions_for_prompt,
@@ -21,7 +20,7 @@ def is_admin(user_id: int) -> bool:
     return user_id in Config.get_admin_ids()
 
 
-def create_command_handlers(db: Database, claude: ClaudeService, notion: NotionService):
+def create_command_handlers(db: Database, claude: ClaudeService):
     """Retorna dict com todos os handlers de comando."""
 
     async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -67,7 +66,6 @@ def create_command_handlers(db: Database, claude: ClaudeService, notion: NotionS
 
         chat_id = update.effective_chat.id
 
-        # Verifica se já está configurado
         existing = await db.get_group(chat_id)
         if existing:
             await update.message.reply_text(
@@ -76,35 +74,22 @@ def create_command_handlers(db: Database, claude: ClaudeService, notion: NotionS
             )
             return
 
-        # Usa o argumento como nome do projeto, ou o nome do grupo
         args_text = " ".join(context.args) if context.args else ""
         project_name = args_text.strip() or update.effective_chat.title or "Projeto"
 
-        await update.message.reply_text(f"Configurando projeto *{project_name}*...", parse_mode="Markdown")
-
         try:
-            # Cria database no Notion
-            notion_db_id = notion.create_project_database(
-                project_name=project_name,
-                chat_id=chat_id,
-                group_name=update.effective_chat.title or project_name,
-            )
-
-            # System prompt padrão
             system_prompt = SYSTEM_PROMPT_TEMPLATE.format(project_name=project_name)
 
-            # Salva no SQLite
             await db.save_group(
                 chat_id=chat_id,
                 group_name=update.effective_chat.title or project_name,
                 project_name=project_name,
-                notion_database_id=notion_db_id,
                 system_prompt=system_prompt,
             )
 
             await update.message.reply_text(
                 f"Projeto *{project_name}* configurado!\n"
-                "Database Notion criada. Use /help para ver os comandos.",
+                "Use /help para ver os comandos.",
                 parse_mode="Markdown",
             )
         except Exception as e:
@@ -135,19 +120,6 @@ def create_command_handlers(db: Database, claude: ClaudeService, notion: NotionS
 
             await update.message.reply_text(truncate(summary, 4000), parse_mode="Markdown")
 
-            # Salva no Notion
-            try:
-                notion.create_page(
-                    database_id=group["notion_database_id"],
-                    tipo="resumo",
-                    titulo=f"Resumo — {group['project_name']}",
-                    conteudo=summary,
-                    autor="Caixa Preta",
-                    grupo_telegram=group["group_name"],
-                )
-            except Exception as e:
-                logger.error(f"Erro ao salvar resumo no Notion: {e}")
-
         except Exception as e:
             logger.error(f"Erro no /resumo: {e}")
             await update.message.reply_text(f"Erro ao gerar resumo: {e}")
@@ -164,42 +136,21 @@ def create_command_handlers(db: Database, claude: ClaudeService, notion: NotionS
             await update.message.reply_text("Use: /decisao [texto da decisão]")
             return
 
-        # Busca 10 mensagens anteriores como contexto
         recent = await db.get_recent_messages(chat_id, limit=10)
         context_text = format_messages_for_prompt(recent) if recent else None
 
         username = update.effective_user.username or update.effective_user.full_name
 
-        # Salva no Notion
-        notion_page_id = None
-        notion_error = None
-        try:
-            notion_page_id = notion.create_page(
-                database_id=group["notion_database_id"],
-                tipo="decisao",
-                titulo=args_text[:100],
-                conteudo=args_text,
-                autor=username,
-                contexto=context_text,
-                grupo_telegram=group["group_name"],
-            )
-        except Exception as e:
-            notion_error = str(e)
-            logger.error(f"Erro ao salvar decisão no Notion: {e}")
-
-        # Salva no SQLite
         await db.save_decision(
             chat_id=chat_id,
             user_id=update.effective_user.id,
             decision_text=args_text,
             context=context_text,
-            notion_page_id=notion_page_id,
         )
 
-        msg = f"Decisão registrada por @{username}: {args_text}"
-        if notion_error:
-            msg += f"\n\n⚠️ Erro Notion: {notion_error}"
-        await update.message.reply_text(msg)
+        await update.message.reply_text(
+            f"Decisão registrada por @{username}: {args_text}"
+        )
 
     async def cmd_pendencia(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_id = update.effective_chat.id
@@ -218,32 +169,13 @@ def create_command_handlers(db: Database, claude: ClaudeService, notion: NotionS
             await update.message.reply_text("Informe o texto da pendência.")
             return
 
-        # Se não atribuiu a ninguém, atribui a quem enviou
         if not assigned_to:
             assigned_to = update.effective_user.username or update.effective_user.full_name
 
-        # Salva no Notion
-        notion_page_id = None
-        try:
-            notion_page_id = notion.create_page(
-                database_id=group["notion_database_id"],
-                tipo="pendencia",
-                titulo=task_text[:100],
-                conteudo=task_text,
-                autor=update.effective_user.username or update.effective_user.full_name,
-                responsavel=assigned_to,
-                status="pendente",
-                grupo_telegram=group["group_name"],
-            )
-        except Exception as e:
-            logger.error(f"Erro ao salvar pendência no Notion: {e}")
-
-        # Salva no SQLite
         task_id = await db.save_task(
             chat_id=chat_id,
             task_text=task_text,
             assigned_to=assigned_to,
-            notion_page_id=notion_page_id,
         )
 
         await update.message.reply_text(
@@ -290,13 +222,6 @@ def create_command_handlers(db: Database, claude: ClaudeService, notion: NotionS
         if not completed:
             await update.message.reply_text("Esta pendência já foi concluída.")
             return
-
-        # Atualiza no Notion
-        if task.get("notion_page_id"):
-            try:
-                notion.update_page_status(task["notion_page_id"], "concluida")
-            except Exception as e:
-                logger.error(f"Erro ao atualizar Notion: {e}")
 
         await update.message.reply_text(f"Pendência concluída: {task['task_text']}")
 

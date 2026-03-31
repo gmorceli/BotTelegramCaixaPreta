@@ -39,20 +39,18 @@ class Database:
         chat_id: int,
         group_name: str,
         project_name: str,
-        notion_database_id: str,
         system_prompt: str,
     ):
         async with self._pool.acquire() as conn:
             await conn.execute(
                 """INSERT INTO groups
-                   (chat_id, group_name, project_name, notion_database_id, system_prompt)
-                   VALUES ($1, $2, $3, $4, $5)
+                   (chat_id, group_name, project_name, system_prompt)
+                   VALUES ($1, $2, $3, $4)
                    ON CONFLICT (chat_id) DO UPDATE SET
                        group_name = EXCLUDED.group_name,
                        project_name = EXCLUDED.project_name,
-                       notion_database_id = EXCLUDED.notion_database_id,
                        system_prompt = EXCLUDED.system_prompt""",
-                chat_id, group_name, project_name, notion_database_id, system_prompt,
+                chat_id, group_name, project_name, system_prompt,
             )
 
     # ── Messages ──
@@ -107,13 +105,12 @@ class Database:
         user_id: int,
         decision_text: str,
         context: str | None = None,
-        notion_page_id: str | None = None,
     ) -> int:
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(
-                """INSERT INTO decisions (chat_id, user_id, decision_text, context, notion_page_id)
-                   VALUES ($1, $2, $3, $4, $5) RETURNING id""",
-                chat_id, user_id, decision_text, context, notion_page_id,
+                """INSERT INTO decisions (chat_id, user_id, decision_text, context)
+                   VALUES ($1, $2, $3, $4) RETURNING id""",
+                chat_id, user_id, decision_text, context,
             )
             return row["id"]
 
@@ -135,13 +132,12 @@ class Database:
         chat_id: int,
         task_text: str,
         assigned_to: str | None = None,
-        notion_page_id: str | None = None,
     ) -> int:
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(
-                """INSERT INTO tasks (chat_id, assigned_to, task_text, notion_page_id)
-                   VALUES ($1, $2, $3, $4) RETURNING id""",
-                chat_id, assigned_to, task_text, notion_page_id,
+                """INSERT INTO tasks (chat_id, assigned_to, task_text)
+                   VALUES ($1, $2, $3) RETURNING id""",
+                chat_id, assigned_to, task_text,
             )
             return row["id"]
 
@@ -167,7 +163,6 @@ class Database:
 
     async def find_task(self, chat_id: int, search: str) -> dict | None:
         async with self._pool.acquire() as conn:
-            # Try by ID first
             if search.isdigit():
                 row = await conn.fetchrow(
                     "SELECT * FROM tasks WHERE id = $1 AND chat_id = $2",
@@ -176,7 +171,6 @@ class Database:
                 if row:
                     return dict(row)
 
-            # Search by text
             row = await conn.fetchrow(
                 """SELECT * FROM tasks
                    WHERE chat_id = $1 AND task_text ILIKE $2 AND status != 'concluida'

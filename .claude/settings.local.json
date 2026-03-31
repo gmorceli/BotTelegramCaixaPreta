@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(gh auth:*)"
+      "Bash(gh auth:*)",
+      "Bash(gh repo:*)",
+      "mcp__f855816f-e122-4b8f-bdb9-2bde4d7d257d__notion-update-data-source"
     ]
   }
 }

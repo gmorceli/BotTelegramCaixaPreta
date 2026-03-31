@@ -3,17 +3,15 @@ from datetime import datetime, timedelta
 
 from bot.storage.database import Database
 from bot.services.claude_service import ClaudeService
-from bot.services.notion_service import NotionService
 from bot.utils.helpers import format_messages_for_prompt, truncate
 
 logger = logging.getLogger(__name__)
 
 
 class SummaryService:
-    def __init__(self, db: Database, claude: ClaudeService, notion: NotionService):
+    def __init__(self, db: Database, claude: ClaudeService):
         self.db = db
         self.claude = claude
-        self.notion = notion
 
     async def run_daily_summaries(self, bot):
         """Gera e envia resumos diários para todos os grupos ativos."""
@@ -53,16 +51,3 @@ class SummaryService:
             text=truncate(text, 4000),
             parse_mode="Markdown",
         )
-
-        # Salva no Notion
-        try:
-            self.notion.create_page(
-                database_id=group["notion_database_id"],
-                tipo="resumo",
-                titulo=f"Resumo diário — {today}",
-                conteudo=summary,
-                autor="Caixa Preta",
-                grupo_telegram=group.get("group_name", ""),
-            )
-        except Exception as e:
-            logger.error(f"Erro ao salvar resumo no Notion: {e}")
