@@ -13,8 +13,19 @@ class NotionService:
     def create_project_database(self, project_name: str, chat_id: int, group_name: str) -> str:
         """Cria database para novo projeto. Retorna database_id.
         Salva chat_id e group_name na descrição da database para restauração."""
-        properties = {
-            "Name": {"title": {}},
+
+        # Passo 1: Cria database apenas com titulo
+        response = self.client.databases.create(
+            parent={"type": "page_id", "page_id": Config.NOTION_PARENT_PAGE_ID},
+            title=[{"type": "text", "text": {"content": project_name}}],
+            description=[{"type": "text", "text": {"content": f"chat_id={chat_id}|group_name={group_name}"}}],
+            properties={"Name": {"title": {}}},
+        )
+        db_id = response["id"]
+        logger.info(f"Database criada: {db_id}")
+
+        # Passo 2: Adiciona properties via update
+        extra_properties = {
             "Tipo": {
                 "select": {
                     "options": [
@@ -39,16 +50,14 @@ class NotionService:
             "GrupoTelegram": {"rich_text": {}},
             "Contexto": {"rich_text": {}},
         }
-        logger.info(f"Criando database Notion com properties: {list(properties.keys())}")
-        response = self.client.databases.create(
-            parent={"type": "page_id", "page_id": Config.NOTION_PARENT_PAGE_ID},
-            title=[{"type": "text", "text": {"content": project_name}}],
-            description=[{"type": "text", "text": {"content": f"chat_id={chat_id}|group_name={group_name}"}}],
-            properties=properties,
+        update_response = self.client.databases.update(
+            database_id=db_id,
+            properties=extra_properties,
         )
-        created_props = list(response.get("properties", {}).keys())
-        logger.info(f"Database criada com properties: {created_props}")
-        return response["id"]
+        final_props = list(update_response.get("properties", {}).keys())
+        logger.info(f"Properties apos update: {final_props}")
+
+        return db_id
 
     def create_page(
         self,
