@@ -176,7 +176,7 @@ def create_command_handlers(db: Database, claude: ClaudeService, notion: NotionS
         try:
             notion_page_id = notion.create_page(
                 database_id=group["notion_database_id"],
-                tipo="decisão",
+                tipo="decisao",
                 titulo=args_text[:100],
                 conteudo=args_text,
                 autor=username,
@@ -227,7 +227,7 @@ def create_command_handlers(db: Database, claude: ClaudeService, notion: NotionS
         try:
             notion_page_id = notion.create_page(
                 database_id=group["notion_database_id"],
-                tipo="pendência",
+                tipo="pendencia",
                 titulo=task_text[:100],
                 conteudo=task_text,
                 autor=update.effective_user.username or update.effective_user.full_name,
@@ -294,7 +294,7 @@ def create_command_handlers(db: Database, claude: ClaudeService, notion: NotionS
         # Atualiza no Notion
         if task.get("notion_page_id"):
             try:
-                notion.update_page_status(task["notion_page_id"], "concluída")
+                notion.update_page_status(task["notion_page_id"], "concluida")
             except Exception as e:
                 logger.error(f"Erro ao atualizar Notion: {e}")
 

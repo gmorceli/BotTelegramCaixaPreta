@@ -13,37 +13,41 @@ class NotionService:
     def create_project_database(self, project_name: str, chat_id: int, group_name: str) -> str:
         """Cria database para novo projeto. Retorna database_id.
         Salva chat_id e group_name na descrição da database para restauração."""
+        properties = {
+            "Name": {"title": {}},
+            "Tipo": {
+                "select": {
+                    "options": [
+                        {"name": "decisao", "color": "green"},
+                        {"name": "pendencia", "color": "yellow"},
+                        {"name": "resumo", "color": "blue"},
+                    ]
+                }
+            },
+            "Status": {
+                "select": {
+                    "options": [
+                        {"name": "pendente", "color": "red"},
+                        {"name": "em_andamento", "color": "yellow"},
+                        {"name": "concluida", "color": "green"},
+                    ]
+                }
+            },
+            "Autor": {"rich_text": {}},
+            "Responsavel": {"rich_text": {}},
+            "Data": {"date": {}},
+            "GrupoTelegram": {"rich_text": {}},
+            "Contexto": {"rich_text": {}},
+        }
+        logger.info(f"Criando database Notion com properties: {list(properties.keys())}")
         response = self.client.databases.create(
             parent={"type": "page_id", "page_id": Config.NOTION_PARENT_PAGE_ID},
             title=[{"type": "text", "text": {"content": project_name}}],
             description=[{"type": "text", "text": {"content": f"chat_id={chat_id}|group_name={group_name}"}}],
-            properties={
-                "Name": {"title": {}},
-                "Tipo": {
-                    "select": {
-                        "options": [
-                            {"name": "decisão", "color": "green"},
-                            {"name": "pendência", "color": "yellow"},
-                            {"name": "resumo", "color": "blue"},
-                        ]
-                    }
-                },
-                "Status": {
-                    "select": {
-                        "options": [
-                            {"name": "pendente", "color": "red"},
-                            {"name": "em_andamento", "color": "yellow"},
-                            {"name": "concluída", "color": "green"},
-                        ]
-                    }
-                },
-                "Autor": {"rich_text": {}},
-                "Responsável": {"rich_text": {}},
-                "Data": {"date": {}},
-                "Grupo Telegram": {"rich_text": {}},
-                "Contexto": {"rich_text": {}},
-            },
+            properties=properties,
         )
+        created_props = list(response.get("properties", {}).keys())
+        logger.info(f"Database criada com properties: {created_props}")
         return response["id"]
 
     def create_page(
@@ -67,13 +71,13 @@ class NotionService:
         }
 
         if responsavel:
-            properties["Responsável"] = {
+            properties["Responsavel"] = {
                 "rich_text": [{"text": {"content": responsavel[:100]}}]
             }
         if status:
             properties["Status"] = {"select": {"name": status}}
         if grupo_telegram:
-            properties["Grupo Telegram"] = {
+            properties["GrupoTelegram"] = {
                 "rich_text": [{"text": {"content": grupo_telegram[:100]}}]
             }
 
