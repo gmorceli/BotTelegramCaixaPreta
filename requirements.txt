@@ -1,0 +1,5 @@
+python-telegram-bot[job-queue]==21.9
+anthropic>=0.43.0
+notion-client>=2.2.0
+python-dotenv>=1.0.0
+aiosqlite>=0.20.0
