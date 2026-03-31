@@ -108,7 +108,7 @@ class ClaudeService:
                 "Você é um assistente de pesquisa. Responda em português brasileiro, "
                 "de forma objetiva com bullet points. Cite as fontes quando possível."
             ),
-            tools=[{"type": "web_search_20250305"}],
+            tools=[{"type": "web_search_20250305", "name": "web_search"}],
             messages=[{"role": "user", "content": query}],
         )
 
