@@ -50,6 +50,7 @@ def create_command_handlers(db: Database, claude: ClaudeService):
             "/pendencias — Listar pendências abertas\n"
             "/feito [nº ou texto] — Marcar pendência como concluída\n"
             "/contexto [pergunta] — Perguntar sobre o projeto\n"
+            "/buscar [pesquisa] — Pesquisar na web\n"
             "/status — Status do projeto (admin)\n"
             "/help — Esta mensagem"
         )
@@ -103,7 +104,7 @@ def create_command_handlers(db: Database, claude: ClaudeService):
             await update.message.reply_text("Grupo não configurado. Use /setup primeiro.")
             return
 
-        messages = await db.get_recent_messages(chat_id, limit=100)
+        messages = await db.get_recent_messages(chat_id, limit=250)
         if not messages:
             await update.message.reply_text("Sem mensagens registradas para resumir.")
             return
@@ -240,7 +241,7 @@ def create_command_handlers(db: Database, claude: ClaudeService):
         await update.message.reply_text("Analisando contexto do projeto...")
 
         try:
-            messages = await db.get_recent_messages(chat_id, limit=200)
+            messages = await db.get_recent_messages(chat_id, limit=350)
             decisions = await db.get_decisions(chat_id)
             tasks = await db.get_pending_tasks(chat_id)
 
@@ -259,6 +260,21 @@ def create_command_handlers(db: Database, claude: ClaudeService):
             logger.error(f"Erro no /contexto: {e}")
             await update.message.reply_text(f"Erro ao buscar contexto: {e}")
 
+    async def cmd_buscar(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        args_text = " ".join(context.args) if context.args else ""
+        if not args_text.strip():
+            await update.message.reply_text("Use: /buscar [sua pesquisa]")
+            return
+
+        await update.message.reply_text("Pesquisando na web...")
+
+        try:
+            result = await claude.web_search(args_text)
+            await update.message.reply_text(truncate(result, 4000), parse_mode="Markdown")
+        except Exception as e:
+            logger.error(f"Erro no /buscar: {e}")
+            await update.message.reply_text(f"Erro na pesquisa: {e}")
+
     async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_id = update.effective_chat.id
 
@@ -272,15 +288,36 @@ def create_command_handlers(db: Database, claude: ClaudeService):
             return
 
         stats = await db.get_group_stats(chat_id)
+        decisions = await db.get_decisions(chat_id, limit=10)
+        tasks = await db.get_pending_tasks(chat_id)
 
-        text = (
-            f"*Status do projeto {group['project_name']}*\n\n"
-            f"Mensagens registradas: {stats['total_messages']}\n"
-            f"Decisões: {stats['total_decisions']}\n"
-            f"Pendências abertas: {stats['pending_tasks']}\n"
-            f"Configurado em: {group['created_at']}"
+        lines = [
+            f"*Status do projeto {group['project_name']}*\n",
+            f"Mensagens registradas: {stats['total_messages']}",
+            f"Configurado em: {str(group['created_at'])[:16]}\n",
+        ]
+
+        # Últimas decisões
+        lines.append(f"*Decisões ({stats['total_decisions']} total):*")
+        if decisions:
+            for d in decisions[-5:]:
+                date = str(d['created_at'])[:10]
+                lines.append(f"• [{date}] {d['decision_text'][:80]}")
+        else:
+            lines.append("• Nenhuma decisão registrada")
+
+        # Pendências abertas
+        lines.append(f"\n*Pendências abertas ({stats['pending_tasks']}):*")
+        if tasks:
+            for t in tasks:
+                assigned = f" -> @{t['assigned_to']}" if t.get("assigned_to") else ""
+                lines.append(f"• #{t['id']} {t['task_text'][:60]}{assigned}")
+        else:
+            lines.append("• Nenhuma pendência aberta")
+
+        await update.message.reply_text(
+            truncate("\n".join(lines), 4000), parse_mode="Markdown"
         )
-        await update.message.reply_text(text, parse_mode="Markdown")
 
     return {
         "start": cmd_start,
@@ -293,5 +330,6 @@ def create_command_handlers(db: Database, claude: ClaudeService):
         "pendencias": cmd_pendencias,
         "feito": cmd_feito,
         "contexto": cmd_contexto,
+        "buscar": cmd_buscar,
         "status": cmd_status,
     }

@@ -25,10 +25,28 @@ logger = logging.getLogger(__name__)
 
 
 async def post_init(application):
-    """Inicializa banco de dados."""
+    """Inicializa banco de dados e registra comandos."""
+    from telegram import BotCommand
+
     db: Database = application.bot_data["db"]
     await db.initialize()
     logger.info("Database PostgreSQL inicializado")
+
+    # Registra comandos para autocomplete no Telegram
+    commands = [
+        BotCommand("setup", "Configurar grupo (admin)"),
+        BotCommand("resumo", "Gerar resumo das discussões"),
+        BotCommand("decisao", "Registrar uma decisão"),
+        BotCommand("pendencia", "Criar pendência"),
+        BotCommand("pendencias", "Listar pendências abertas"),
+        BotCommand("feito", "Marcar pendência como concluída"),
+        BotCommand("contexto", "Perguntar sobre o projeto"),
+        BotCommand("buscar", "Pesquisar na web"),
+        BotCommand("status", "Status do projeto (admin)"),
+        BotCommand("help", "Ver comandos disponíveis"),
+    ]
+    await application.bot.set_my_commands(commands)
+    logger.info("Comandos registrados no Telegram")
 
 
 async def post_shutdown(application):
