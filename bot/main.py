@@ -72,9 +72,11 @@ async def post_shutdown(application):
 def main():
     if not Config.TELEGRAM_BOT_TOKEN:
         raise ValueError("TELEGRAM_BOT_TOKEN não configurado")
+    if not Config.DATABASE_URL:
+        raise ValueError("DATABASE_URL não configurado")
 
     # Inicializa serviços
-    db = Database(Config.DB_PATH)
+    db = Database(Config.DATABASE_URL)
     claude = ClaudeService()
     notion = NotionService()
     summary_service = SummaryService(db, claude, notion)

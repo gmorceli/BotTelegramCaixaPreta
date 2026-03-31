@@ -22,7 +22,7 @@ class Config:
     MESSAGE_BUFFER_LIMIT = int(os.getenv("MESSAGE_BUFFER_LIMIT", "500"))
 
     # Database
-    DB_PATH = os.getenv("DB_PATH", "data/james.db")
+    DATABASE_URL = os.getenv("DATABASE_URL", "")
 
     @staticmethod
     def get_admin_ids() -> list[int]:
