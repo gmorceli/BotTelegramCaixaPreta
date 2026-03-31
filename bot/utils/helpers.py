@@ -44,12 +44,20 @@ def truncate(text: str, max_length: int = 2000) -> str:
 
 
 def parse_assigned_user(text: str) -> tuple[str | None, str]:
-    """Extrai @usuario do início do texto. Retorna (usuario, resto_do_texto)."""
+    """Extrai usuario do início do texto. Aceita @usuario ou nome.
+    Retorna (usuario, resto_do_texto).
+    Se só tiver uma palavra, assume que é o texto da tarefa (sem atribuição)."""
     parts = text.strip().split(None, 1)
     if not parts:
         return None, ""
-    if parts[0].startswith("@"):
-        username = parts[0][1:]
+    first = parts[0]
+    # Se começa com @, é claramente um usuario
+    if first.startswith("@"):
+        username = first[1:]
         rest = parts[1] if len(parts) > 1 else ""
         return username, rest
+    # Se tem mais de uma palavra, a primeira é o responsável
+    if len(parts) > 1:
+        return first, parts[1]
+    # Só uma palavra = texto da tarefa, sem atribuição
     return None, text.strip()
